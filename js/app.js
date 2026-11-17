@@ -18,7 +18,7 @@
     document.body.classList.remove('connected');
     $('#main').innerHTML = `
       <form id="login" class="form login">
-        <img src="icon.png" alt="" width="84" height="84">
+        <img class="login-logo" src="images/logo.png" alt="Casaque de l’Écurie Roubaud" width="132" height="132">
         <h1>Écurie Roubaud</h1>
         <p class="muted">Connectez-vous avec l’identifiant commun de l’écurie.</p>
         <label>Adresse e-mail<input id="l-email" type="email" autocomplete="username" required></label>

@@ -96,7 +96,7 @@
     const x = t => left + t / total * (width - left - 6);
     const y = v => top + (1 - (v - min) / (max - min)) * (height - top - bottom);
     ctx.font = '11px system-ui, sans-serif';
-    ctx.fillStyle = '#5b5b5b'; ctx.strokeStyle = '#e1e1dc'; ctx.lineWidth = 1;
+    ctx.fillStyle = themeColor('--chart-text', '#5b5b5b'); ctx.strokeStyle = themeColor('--chart-grid', '#e1e1dc'); ctx.lineWidth = 1;
     for (let i = 0; i <= 4; i++) {
       const v = min + (max - min) * i / 4, yy = y(v);
       ctx.beginPath(); ctx.moveTo(left, yy); ctx.lineTo(width - 6, yy); ctx.stroke();
@@ -118,13 +118,18 @@
     return true;
   }
 
+  // Couleur définie par le thème (themes/*.css).
+  function themeColor(name, fallback) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  }
+
   // --- Compte rendu --------------------------------------------------------------
   const READING_TEXT = { green: 'Dans la plage de référence', orange: 'Au-dessus du repère', red: 'Seuil rouge dépassé', below: 'Sous la plage de référence' };
   function reading(r, minutes) {
     const label = r && r.hr != null ? r.hr + ' bpm' : r && r.status === 'pending' ? 'En attente' : 'Non mesuré';
     const color = r && r.color || 'gray';
     const meaning = READING_TEXT[color] || label;
-    return `<div class="reading"><span>À ${minutes} min</span><strong>${esc(label)}</strong><i class="dot ${esc(color)}" role="img" aria-label="${esc(meaning)}" title="${esc(meaning)}"></i>${color !== 'gray' ? `<small>${esc(meaning)}</small>` : ''}</div>`;
+    return `<div class="reading"><span>À ${minutes} min</span><strong${r && r.hr != null ? '' : ' class="none"'}>${esc(label)}</strong><i class="dot ${esc(color)}" role="img" aria-label="${esc(meaning)}" title="${esc(meaning)}"></i>${color !== 'gray' ? `<small>${esc(meaning)}</small>` : ''}</div>`;
   }
 
   async function renderReport(main, id) {
@@ -212,11 +217,11 @@
       </section>`);
 
     const drawAll = () => {
-      if ($('#hr-chart')) drawChart($('#hr-chart'), samples, [{ color: '#a3221b', read: x => Number.isFinite(x.hr) && x.hr > 0 && x.hr <= 250 ? x.hr : null }], s.elapsed, 'bpm');
+      if ($('#hr-chart')) drawChart($('#hr-chart'), samples, [{ color: themeColor('--chart-hr', '#a3221b'), read: x => Number.isFinite(x.hr) && x.hr > 0 && x.hr <= 250 ? x.hr : null }], s.elapsed, 'bpm');
       if ($('#speed-chart')) {
         const compare = $('#compare-gps')?.checked;
-        const series = [{ color: '#5b1f79', read: x => channelSpeed(x, 'wheel') }];
-        if (compare) series.push({ color: '#16799a', read: x => channelSpeed(x, 'gps') });
+        const series = [{ color: themeColor('--chart-wheel', '#5b1f79'), read: x => channelSpeed(x, 'wheel') }];
+        if (compare) series.push({ color: themeColor('--chart-gps', '#16799a'), read: x => channelSpeed(x, 'gps') });
         drawChart($('#speed-chart'), samples, series, s.elapsed, 'km/h');
         if ($('#legend')) $('#legend').hidden = !compare;
       }
