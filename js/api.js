@@ -150,10 +150,11 @@
     return store.records.get(kind + ':' + id);
   }
 
-  // Drivers de l'écurie : noms rangés avec les comptes des drivers.
+  // Drivers de l'écurie : liste fixe rangée dans la base (un seul compte
+  // pour toute l'écurie, les drivers n'ont pas de compte).
   async function drivers() {
-    const rows = await rpc('er_user_accounts', { p_workspace: store.workspace, p_action: 'list', p_body: {} });
-    return (rows || []).filter(r => r.role === 'driver' && !r.revoked && r.driver).map(r => r.driver);
+    const names = await rpc('er_drivers', { p_workspace: store.workspace, p_action: 'list' });
+    return (Array.isArray(names) ? names : []).filter(n => typeof n === 'string' && n.trim());
   }
 
   // Mesures détaillées d'une séance (paquets de 1 000), gardées en mémoire.
