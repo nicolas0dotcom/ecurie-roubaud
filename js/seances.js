@@ -6,7 +6,7 @@
 // comme sur la tablette.
 (function () {
   'use strict';
-  const { $, esc, nameKey, toast, niceName } = window.Outils;
+  const { $, esc, nameKey, toast, niceName, workLabel } = window.Outils;
   const { pace, recoveryReport, measures, phaseTable, channelSpeed, duration } = window.Calculs;
 
   const filters = { horse: '', driver: '', from: '', to: '' };
@@ -20,6 +20,15 @@
   const kmh = v => Number.isFinite(v) ? v.toFixed(1).replace('.', ',') + ' km/h' : '—';
 
   const horseName = s => Api.get('horse', s.payload.horseId)?.payload.name || s.payload.horseName || 'Cheval inconnu';
+
+  // Type de travail d'une séance : Promenade, Trotter, ou Heat / Travail H
+  // d'après la sortie du planning à laquelle elle correspond.
+  function sessionWork(s) {
+    if (s.payload.work === 'P') return 'Promenade';
+    const plan = s.payload.planId ? Api.get('plan', s.payload.planId) : null;
+    if (!plan) return 'Trotter';
+    return workLabel(plan.payload, Api.list('plan').map(p => p.payload));
+  }
 
   // Séances à montrer : terminées, avec un cheval, hors démonstration.
   function finishedSessions() {
@@ -60,7 +69,7 @@
           <span class="row-text">
             <strong>${esc(horseName(s))}</strong>
             <small>${esc(dateText(s.payload.started))} · ${esc(timeText(s.payload.started))}${s.payload.driver ? ' · ' + esc(niceName(s.payload.driver)) : ''}</small>
-            <small>${esc(duration(s.payload.elapsed))} · ${esc(meters(s.payload.distance))}${s.payload.work === 'P' ? ' · Promenade' : ''}</small>
+            <small>${esc(duration(s.payload.elapsed))} · ${esc(meters(s.payload.distance))} · ${esc(sessionWork(s))}</small>
           </span>
           <span class="chevron" aria-hidden="true">›</span>
         </a></li>`).join('') : '<li class="empty-list">Aucune séance pour ces filtres.</li>';
@@ -211,6 +220,7 @@
           <dt>Date</dt><dd>${esc(longDate(s.started))}</dd>
           <dt>Heure</dt><dd>${esc(timeText(s.started))}${Number.isFinite(s.ended) ? ' – ' + esc(timeText(s.ended)) : ''}</dd>
           <dt>Driver</dt><dd>${esc(s.driver ? niceName(s.driver) : '—')}</dd>
+          <dt>Travail</dt><dd>${esc(sessionWork(record))}</dd>
           <dt>Durée totale</dt><dd>${esc(duration(s.elapsed))}</dd>
           <dt>Distance totale</dt><dd>${esc(meters(s.distance))}</dd>
         </dl>

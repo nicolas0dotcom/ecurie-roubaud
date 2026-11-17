@@ -72,5 +72,19 @@
     return String(value ?? '').trim().replace(/(^|[\s-])(\p{L})/gu, (all, sep, letter) => sep + letter.toUpperCase());
   }
 
-  window.Outils = { $, esc, nameKey, toast, resizeImage, safePhoto, parisDay, addDays, validDay, longDay, niceName };
+  // Travail en Heat : un cheval sorti plusieurs fois en Trotter le même jour par
+  // le même driver. La 1re sortie (plus petit lot) est un « Heat », les suivantes
+  // un « Travail H ». Même règle que la tablette (public/core.js, workLabel).
+  // plan et plans sont des contenus de planning : { id, date, horseId, driver, work, lot, order }.
+  function workLabel(plan, plans) {
+    if (!plan) return 'Trotter';
+    if (plan.work === 'P') return 'Promenade';
+    const same = (plans || [])
+      .filter(p => p && p.work === 'T' && p.date && p.date === plan.date && p.horseId === plan.horseId && nameKey(p.driver) === nameKey(plan.driver))
+      .sort((a, b) => (a.lot - b.lot) || ((a.order || 0) - (b.order || 0)) || String(a.id).localeCompare(String(b.id)));
+    if (same.length < 2 || !same.some(p => p.id === plan.id)) return 'Trotter';
+    return same[0].id === plan.id ? 'Heat' : 'Travail H';
+  }
+
+  window.Outils = { $, esc, nameKey, toast, resizeImage, safePhoto, parisDay, addDays, validDay, longDay, niceName, workLabel };
 })();

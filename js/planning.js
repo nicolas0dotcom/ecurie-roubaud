@@ -8,7 +8,7 @@
 // espace : « Jean-Marie » et « Jean Marie » conviennent tous les deux).
 (function () {
   'use strict';
-  const { $, esc, nameKey, toast, parisDay, addDays, validDay, longDay, niceName } = window.Outils;
+  const { $, esc, nameKey, toast, parisDay, addDays, validDay, longDay, niceName, workLabel } = window.Outils;
 
   let day = parisDay(1); // demain par défaut
   let driver = null;     // nom affiché du driver choisi
@@ -96,6 +96,7 @@
     if (!body) return;
     if (!driver) { body.innerHTML = '<p class="empty-list">Aucun driver trouvé dans la base.</p>'; return; }
     const rows = rowsFor(day, driver);
+    const allPlans = rows.map(r => r.payload); // pour reconnaître le travail en Heat
     const tabletNote = nameKey(driver) === 'jeanmarie' ? '' :
       '<p class="note">Les tablettes affichent seulement le planning de Jean-Marie. Ce planning est enregistré et consultable ici.</p>';
     body.innerHTML = `
@@ -108,7 +109,7 @@
           <div class="lot-line">
             <span class="lot-number">Lot ${i + 1}</span>
             <span class="lot-horse"><strong>${esc(horseName(p.horseId))}</strong>
-              <small>${p.work === 'P' ? 'Promenade' : 'Trotter'}${archived ? ' · archivé' : ''}${done(row.id) ? ' · séance faite' : ''}</small></span>
+              <small>${esc(workLabel(p, allPlans))}${archived ? ' · archivé' : ''}${done(row.id) ? ' · séance faite' : ''}</small></span>
           </div>
           <div class="lot-buttons">
             <button type="button" class="button icon" data-move="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Monter ${esc(horseName(p.horseId))}">▲</button>
@@ -122,7 +123,8 @@
         <button type="button" class="button primary" id="add-horse">+ Ajouter un cheval</button>
         ${rows.length ? '<button type="button" class="button" id="copy-day">Recopier ce planning sur un autre jour</button>' : ''}
       </div>
-      <p class="muted small-text">T = Trotter (travail) · P = Promenade. Touchez T ou P pour changer.</p>`;
+      <p class="muted small-text">T = Trotter (travail) · P = Promenade. Touchez T ou P pour changer.<br>
+      Un même cheval mis deux fois en T : la 1re sortie devient « Heat », la suivante « Travail H ».</p>`;
 
     for (const b of body.querySelectorAll('[data-move]')) b.onclick = () => {
       const i = Number(b.dataset.move), j = i + Number(b.dataset.dir);
