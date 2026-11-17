@@ -13,7 +13,6 @@
   let limit = 50;
 
   const parisDayOf = ms => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
-  const dateText = ms => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(ms));
   const timeText = ms => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
   const longDate = ms => { const t = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(ms)); return t.charAt(0).toUpperCase() + t.slice(1); };
   const meters = m => Number.isFinite(m) ? (m >= 1000 ? (m / 1000).toFixed(2).replace('.', ',') + ' km' : Math.round(m) + ' m') : '—';
@@ -38,24 +37,30 @@
   }
 
   // --- Historique --------------------------------------------------------------
-  function renderList(main, presetHorse) {
+  // presetHorse : filtre venant de l'adresse (#seances/<cheval>) ; undefined = garder les filtres.
+  // activeId : séance ouverte à droite sur grand écran (ligne mise en valeur).
+  let periodOpen = false;
+  function renderList(main, presetHorse, activeId) {
     if (presetHorse !== undefined) { filters.horse = presetHorse; limit = 50; }
     const all = finishedSessions();
     const horses = [...new Map(all.map(s => [s.payload.horseId, horseName(s)])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr'));
     const drivers = [...new Map(all.filter(s => s.payload.driver).map(s => [nameKey(s.payload.driver), niceName(s.payload.driver)])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr'));
+    periodOpen = periodOpen || !!(filters.from || filters.to);
     main.innerHTML = `
-      <h1>Séances</h1>
-      <div class="filters">
-        <label>Cheval<select id="f-horse"><option value="">Tous les chevaux</option>${horses.map(([id, name]) => `<option value="${esc(id)}" ${id === filters.horse ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></label>
-        <label>Driver<select id="f-driver"><option value="">Tous les drivers</option>${drivers.map(([key, name]) => `<option value="${esc(key)}" ${key === filters.driver ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></label>
-        <div class="period">
-          <label>Du<input type="date" id="f-from" value="${esc(filters.from)}"></label>
-          <label>Au<input type="date" id="f-to" value="${esc(filters.to)}"></label>
-        </div>
-        <button type="button" class="button small" id="f-reset">Effacer les filtres</button>
+      <div class="page-head"><h1>Séances</h1><span class="muted" id="count"></span></div>
+      <div class="filter-bar">
+        <select id="f-horse" aria-label="Cheval"><option value="">Tous les chevaux</option>${horses.map(([id, name]) => `<option value="${esc(id)}" ${id === filters.horse ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select>
+        <select id="f-driver" aria-label="Driver"><option value="">Tous les drivers</option>${drivers.map(([key, name]) => `<option value="${esc(key)}" ${key === filters.driver ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select>
       </div>
-      <p class="muted" id="count"></p>
-      <ul class="rows" id="session-list"></ul>
+      <div class="chips">
+        <button type="button" class="chip ${periodOpen ? 'active' : ''}" id="f-period" aria-expanded="${periodOpen}">Période${filters.from || filters.to ? ' •' : ''}</button>
+        <button type="button" class="chip" id="f-reset" ${filters.horse || filters.driver || filters.from || filters.to ? '' : 'hidden'}>✕ Effacer les filtres</button>
+      </div>
+      <div class="period" id="period" ${periodOpen ? '' : 'hidden'}>
+        <label>Du<input type="date" id="f-from" value="${esc(filters.from)}"></label>
+        <label>Au<input type="date" id="f-to" value="${esc(filters.to)}"></label>
+      </div>
+      <div id="session-list"></div>
       <div id="more"></div>`;
     const draw = () => {
       const rows = all.filter(s =>
@@ -64,15 +69,24 @@
         (!filters.from || parisDayOf(s.payload.started) >= filters.from) &&
         (!filters.to || parisDayOf(s.payload.started) <= filters.to));
       $('#count').textContent = rows.length + (rows.length > 1 ? ' séances' : ' séance');
-      $('#session-list').innerHTML = rows.length ? rows.slice(0, limit).map(s => `
-        <li><a class="row" href="#seance/${encodeURIComponent(s.id)}">
-          <span class="row-text">
-            <strong>${esc(horseName(s))}</strong>
-            <small>${esc(dateText(s.payload.started))} · ${esc(timeText(s.payload.started))}${s.payload.driver ? ' · ' + esc(niceName(s.payload.driver)) : ''}</small>
-            <small>${esc(duration(s.payload.elapsed))} · ${esc(meters(s.payload.distance))} · ${esc(sessionWork(s))}</small>
-          </span>
-          <span class="chevron" aria-hidden="true">›</span>
-        </a></li>`).join('') : '<li class="empty-list">Aucune séance pour ces filtres.</li>';
+      $('#f-reset').hidden = !(filters.horse || filters.driver || filters.from || filters.to);
+      // Regroupées par jour, du plus récent au plus ancien.
+      const groups = [];
+      for (const s of rows.slice(0, limit)) {
+        const d = parisDayOf(s.payload.started);
+        if (!groups.length || groups[groups.length - 1].day !== d) groups.push({ day: d, items: [] });
+        groups[groups.length - 1].items.push(s);
+      }
+      $('#session-list').innerHTML = rows.length ? groups.map(g => `
+        <h3 class="group-day">${esc(longDate(g.items[0].payload.started))} <small>${g.items.length > 1 ? g.items.length + ' séances' : ''}</small></h3>
+        <ul class="rows compact">${g.items.map(s => `
+          <li><a class="row${s.id === activeId ? ' current' : ''}" href="#seance/${encodeURIComponent(s.id)}"${s.id === activeId ? ' aria-current="page"' : ''}>
+            <span class="row-text">
+              <strong>${esc(horseName(s))}</strong>
+              <small>${esc(timeText(s.payload.started))}${s.payload.driver ? ' · ' + esc(niceName(s.payload.driver)) : ''} · ${esc(sessionWork(s))}</small>
+            </span>
+            <span class="row-side"><b>${esc(duration(s.payload.elapsed))}</b><small>${esc(meters(s.payload.distance))}</small></span>
+          </a></li>`).join('')}</ul>`).join('') : '<p class="empty-list">Aucune séance pour ces filtres.</p>';
       $('#more').innerHTML = rows.length > limit ? '<button type="button" class="button" id="show-more">Voir les séances plus anciennes</button>' : '';
       if ($('#show-more')) $('#show-more').onclick = () => { limit += 50; draw(); };
     };
@@ -80,7 +94,17 @@
     $('#f-driver').onchange = e => { filters.driver = e.target.value; limit = 50; draw(); };
     $('#f-from').onchange = e => { filters.from = e.target.value; limit = 50; draw(); };
     $('#f-to').onchange = e => { filters.to = e.target.value; limit = 50; draw(); };
-    $('#f-reset').onclick = () => { Object.assign(filters, { horse: '', driver: '', from: '', to: '' }); location.hash = '#seances'; renderList(main); };
+    $('#f-period').onclick = () => {
+      periodOpen = !periodOpen;
+      $('#period').hidden = !periodOpen;
+      $('#f-period').classList.toggle('active', periodOpen);
+      $('#f-period').setAttribute('aria-expanded', periodOpen);
+    };
+    $('#f-reset').onclick = () => {
+      Object.assign(filters, { horse: '', driver: '', from: '', to: '' });
+      periodOpen = false; limit = 50;
+      if (location.hash.startsWith('#seances/')) location.hash = '#seances'; else renderList(main, undefined, activeId);
+    };
     draw();
   }
 
@@ -241,5 +265,5 @@
     window.onresize = () => { if ($('#speed-chart') || $('#hr-chart')) drawAll(); };
   }
 
-  window.Seances = { renderList, renderReport };
+  window.Seances = { renderList, renderReport, finishedSessions };
 })();

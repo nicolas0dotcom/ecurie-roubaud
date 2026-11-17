@@ -67,6 +67,28 @@
     return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
+  // "AAAA-MM-JJ" -> "jeu. 19 nov."
+  function shortDay(day) {
+    const [y, m, d] = day.split('-').map(Number);
+    return new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(Date.UTC(y, m - 1, d)));
+  }
+  // Jour de Paris ("AAAA-MM-JJ") d'un instant en millisecondes.
+  function dayOf(ms) {
+    return new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+  }
+  // Écart en jours avec aujourd'hui, en mots : « aujourd’hui », « hier », « dans 3 j »…
+  function fromToday(day) {
+    const n = Math.round((Date.parse(day) - Date.parse(parisDay(0))) / 86400000);
+    if (n === 0) return 'aujourd’hui';
+    if (n === 1) return 'demain';
+    if (n === -1) return 'hier';
+    return n > 0 ? `dans ${n} j` : `il y a ${-n} j`;
+  }
+
+  // Grand écran : deux colonnes (liste à gauche, détail à droite).
+  const wideQuery = window.matchMedia('(min-width: 1100px)');
+  const isWide = () => wideQuery.matches;
+
   // "kevin" -> "Kevin", "jean marie" -> "Jean Marie".
   function niceName(value) {
     return String(value ?? '').trim().replace(/(^|[\s-])(\p{L})/gu, (all, sep, letter) => sep + letter.toUpperCase());
@@ -86,5 +108,5 @@
     return same[0].id === plan.id ? 'Heat' : 'Travail H';
   }
 
-  window.Outils = { $, esc, nameKey, toast, resizeImage, safePhoto, parisDay, addDays, validDay, longDay, niceName, workLabel };
+  window.Outils = { $, esc, nameKey, toast, resizeImage, safePhoto, parisDay, addDays, validDay, longDay, shortDay, dayOf, fromToday, wideQuery, isWide, niceName, workLabel };
 })();
