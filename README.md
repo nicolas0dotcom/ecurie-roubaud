@@ -31,10 +31,13 @@ Aucune table n'est modifiée. Il faut se connecter avec le compte de l'écurie (
 Lancer le serveur `web-gestion` de `.claude/launch.json` (jwebserver d'Android Studio), puis ouvrir
 http://localhost:8770.
 
-## Publication (Netlify)
+## Publication (GitHub Pages)
 
-La page est publiée telle quelle sur Netlify : on dépose le dossier `web-gestion` entier sur
-la page « Deploys » du site (glisser-déposer). Le fichier `_headers` ajoute les en-têtes de
-sécurité (pas d'affichage dans une autre page, pas de cache périmé).
+Adresse : https://nicolas0dotcom.github.io/ecurie-roubaud/
+
+Pour publier une nouvelle version : `bash scripts/publier-page-web.sh "message"`.
+Le dépôt public `nicolas0dotcom/ecurie-roubaud` ne contient que ce dossier ; les commits
+utilisent l'adresse anonyme GitHub. (Le fichier `_headers` ne sert que si la page est un jour
+hébergée sur Netlify.)
 Dans `index.html`, une règle de sécurité (Content-Security-Policy) limite la page à ses propres
 fichiers, à la bibliothèque Supabase (vérifiée par son empreinte) et à la base de l'écurie.
